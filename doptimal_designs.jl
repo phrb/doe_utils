@@ -211,7 +211,6 @@ function main()
     println(factors)
     println(typeof(factors))
 
-    #sample_range = div(length(factors), 2):(10 * length(factors))
     sample_range = (length(factors) + 1):(length(factors) + 10)
     designs = 100
 
