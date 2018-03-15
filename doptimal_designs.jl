@@ -165,6 +165,7 @@ end
 end
 
 function generate_designs(factors::Array{T, 1},
+                          formula::DataFrames.Formula,
                           sample_range::UnitRange{Int},
                           designs::Int) where T <: Any
     evaluation = DataFrame(Length = [],
@@ -182,7 +183,6 @@ function generate_designs(factors::Array{T, 1},
     for i in 1:designs
         samples      = rand(sample_range)
         subset       = full_factorial_subset(factors, samples)
-        formula      = build_linear_formula(length(factors))
         model_matrix = generate_model_matrix(formula, Array{Float64, 2}(subset), factors)
         candidate    = Array(model_matrix)
 
@@ -206,15 +206,17 @@ end
 
 function main()
     factors = [Array{Float64, 1}(1:rand(3:3)) for i = 1:4]
+    formula = build_linear_formula(length(factors))
 
     println(factors)
     println(typeof(factors))
 
     #sample_range = div(length(factors), 2):(10 * length(factors))
     sample_range = (length(factors) + 1):(length(factors) + 10)
-    designs = 1000
+    designs = 100
 
     println(@elapsed sampling_subset = generate_designs(factors,
+                                                        formula,
                                                         sample_range,
                                                         designs))
 
