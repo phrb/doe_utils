@@ -197,6 +197,11 @@ function generate_designs(factors::Array{T, 1},
         sample_range = sample_range.start:full_factorial_size
     end
 
+    if sample_range.start == sample_range.stop
+        println("> Total Subsets for Fixed Size ", sample_range.start, ": ",
+                binomial(full_factorial_size, sample_range.start))
+    end
+
     evaluation = DataFrame(Length = [],
                            D      = [],
                            log10D = [],
