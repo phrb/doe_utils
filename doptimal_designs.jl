@@ -1,3 +1,9 @@
+if length(workers()) > 1
+    rmprocs.(workers())
+end
+
+addprocs(2)
+
 using IterTools, DataFrames, StatsBase, StatPlots
 
 function build_linear_formula(factors::Int)
@@ -227,33 +233,17 @@ function generate_designs(factors::Array{T, 1},
     return evaluation
 end
 
-function main()
-    factors = [Array{Float64, 1}(1:3) for i = 1:4]
-
+function sample_subset(factors, sample_range, designs)
     formula = build_linear_formula(length(factors))
     #formula = @formula(y ~ x1 + x2 + x3)
-
-    sample_range = (length(factors) - 1):(length(factors) + 12)
-    designs = 1000
 
     run_time = @elapsed sampling_subset = generate_designs(factors,
                                                            formula,
                                                            sample_range,
                                                            designs)
-
     println("> Elapsed Time: ", run_time, " seconds")
 
     sort!(sampling_subset, cols = :D, rev = true)
 
-    println(sampling_subset)
-
-    plotly()
-
-    ymax = max(sampling_subset[:Length]..., sampling_subset[:D]...)
-
-    @df sampling_subset plot(1:size(sampling_subset, 1),
-                             [:D :DELB :log2CN :Length],
-                             ylims = (-1, ymax + 2))
+    return sampling_subset
 end
-
-main()
