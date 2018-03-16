@@ -168,6 +168,29 @@ function generate_designs(factors::Array{T, 1},
                           formula::DataFrames.Formula,
                           sample_range::UnitRange{Int},
                           designs::Int) where T <: Any
+    println("> Factors: ", factors)
+
+    full_factorial_size = prod(length, factors)
+    full_factorial_subsets = 2.0 ^ full_factorial_size
+
+    println("> Full Factorial Size: ", full_factorial_size)
+    println("> Total Subsets: ", full_factorial_subsets)
+    println("> Range of Design Sizes: ", sample_range)
+    println("> Number of Design to Sample: ", designs)
+
+    if designs > full_factorial_subsets
+        println("> Requested too many designs, using ",
+                full_factorial_subsets, " instead")
+
+        designs = full_factorial_subsets
+    end
+
+    if sample_range.stop > full_factorial_size
+        println("> Requested too many maximum experiments, using ",
+                full_factorial_size, " instead")
+        sample_range = sample_range.start:full_factorial_size
+    end
+
     evaluation = DataFrame(Length = [],
                            D      = [],
                            log10D = [],
@@ -205,19 +228,20 @@ function generate_designs(factors::Array{T, 1},
 end
 
 function main()
-    factors = [Array{Float64, 1}(1:rand(3:3)) for i = 1:4]
+    factors = [Array{Float64, 1}(1:3) for i = 1:4]
+
     formula = build_linear_formula(length(factors))
+    #formula = @formula(y ~ x1 + x2 + x3)
 
-    println(factors)
-    println(typeof(factors))
+    sample_range = (length(factors) - 1):(length(factors) + 12)
+    designs = 1000
 
-    sample_range = (length(factors) + 1):(length(factors) + 10)
-    designs = 100
+    run_time = @elapsed sampling_subset = generate_designs(factors,
+                                                           formula,
+                                                           sample_range,
+                                                           designs)
 
-    println(@elapsed sampling_subset = generate_designs(factors,
-                                                        formula,
-                                                        sample_range,
-                                                        designs))
+    println("> Elapsed Time: ", run_time, " seconds")
 
     sort!(sampling_subset, cols = :D, rev = true)
 
