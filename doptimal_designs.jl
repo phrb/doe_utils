@@ -199,7 +199,9 @@ function generate_designs(factors::Array{T, 1},
 
     if sample_range.start == sample_range.stop
         println("> Total Subsets for Fixed Size ", sample_range.start, ": ",
-                binomial(full_factorial_size, sample_range.start))
+                factorial(float(full_factorial_size)) /
+                (factorial(float(full_factorial_size - sample_range.start)) *
+                factorial(float(sample_range.start))))
     end
 
     evaluation = DataFrame(Length = [],
