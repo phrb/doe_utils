@@ -173,7 +173,8 @@ end
 function generate_designs(factors::Array{T, 1},
                           formula::DataFrames.Formula,
                           sample_range::UnitRange{Int},
-                          designs::Int) where T <: Any
+                          designs::Int;
+                          check_bounds::Bool = true) where T <: Any
     println("> Factors: ", factors)
 
     full_factorial_size = prod(length, factors)
@@ -184,24 +185,28 @@ function generate_designs(factors::Array{T, 1},
     println("> Range of Design Sizes: ", sample_range)
     println("> Number of Design to Sample: ", designs)
 
-    if designs > full_factorial_subsets
-        println("> Requested too many designs, using ",
-                full_factorial_subsets, " instead")
+    if check_bounds
+        if designs > full_factorial_subsets
+            println("> Requested too many designs, using ",
+                    full_factorial_subsets, " instead")
 
-        designs = full_factorial_subsets
-    end
+            designs = full_factorial_subsets
+        end
 
-    if sample_range.stop > full_factorial_size
-        println("> Requested too many maximum experiments, using ",
-                full_factorial_size, " instead")
-        sample_range = sample_range.start:full_factorial_size
-    end
+        if sample_range.stop > full_factorial_size
+            println("> Requested too many maximum experiments, using ",
+                    full_factorial_size, " instead")
+            sample_range = sample_range.start:full_factorial_size
+        end
 
-    if sample_range.start == sample_range.stop
-        println("> Total Subsets for Fixed Size ", sample_range.start, ": ",
-                factorial(float(full_factorial_size)) /
-                (factorial(float(full_factorial_size - sample_range.start)) *
-                factorial(float(sample_range.start))))
+        if sample_range.start == sample_range.stop
+            println("> Total Subsets for Fixed Size ", sample_range.start, ": ",
+                    factorial(float(full_factorial_size)) /
+                    (factorial(float(full_factorial_size - sample_range.start)) *
+                    factorial(float(sample_range.start))))
+        end
+    else
+        println("> WARNING: Skipping bounds check!")
     end
 
     evaluation = DataFrame(Length = [],
@@ -240,14 +245,15 @@ function generate_designs(factors::Array{T, 1},
     return evaluation
 end
 
-function sample_subset(factors, sample_range, designs)
+function sample_subset(factors, sample_range, designs; check_bounds = true)
     formula = build_linear_formula(length(factors))
     #formula = @formula(y ~ x1 + x2 + x3)
 
     run_time = @elapsed sampling_subset = generate_designs(factors,
                                                            formula,
                                                            sample_range,
-                                                           designs)
+                                                           designs,
+                                                           check_bounds = check_bounds)
     println("> Elapsed Time: ", run_time, " seconds")
 
     sort!(sampling_subset, cols = :D, rev = true)
@@ -255,7 +261,10 @@ function sample_subset(factors, sample_range, designs)
     return sampling_subset
 end
 
-function sample_subsets(factors::Array, ranges::Array{UnitRange{Int}, 1}, designs::Int)
+function sample_subsets(factors::Array,
+                        ranges::Array{UnitRange{Int}, 1},
+                        designs::Int;
+                        check_bounds::Bool = true)
     sampled_subsets = []
 
     for subset = 1:length(ranges)
@@ -270,7 +279,10 @@ function sample_subsets(factors::Array, ranges::Array{UnitRange{Int}, 1}, design
 
         label = string(label, ", ", length(factors[subset]), " Factors")
 
-        sampled_subset = sample_subset(factors[subset], ranges[subset], designs)
+        sampled_subset = sample_subset(factors[subset],
+                                       ranges[subset],
+                                       designs,
+                                       check_bounds = check_bounds)
 
         push!(sampled_subsets,
               (sampled_subset,
@@ -311,6 +323,6 @@ function plot_subsets(sampled_subsets)
     end
 
     plot(subplots...,
-        layout = (7, 2)
+        layout = (length(sampled_subsets), 2)
     )
 end
