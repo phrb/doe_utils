@@ -254,3 +254,63 @@ function sample_subset(factors, sample_range, designs)
 
     return sampling_subset
 end
+
+function sample_subsets(factors::Array, ranges::Array{UnitRange{Int}, 1}, designs::Int)
+    sampled_subsets = []
+
+    for subset = 1:length(ranges)
+        label = " "
+
+        if ranges[subset].start == ranges[subset].stop
+            label = string(ranges[subset].start, " Experiments")
+        else
+            label = string(ranges[subset].start, " to ",
+                          ranges[subset].stop, " Experiments")
+        end
+
+        label = string(label, ", ", length(factors[subset]), " Factors")
+
+        sampled_subset = sample_subset(factors[subset], ranges[subset], designs)
+
+        push!(sampled_subsets,
+              (sampled_subset,
+              max(sampled_subset[:Length]..., sampled_subset[:D]...),
+              label))
+    end
+
+    return sampled_subsets
+end
+
+function plot_subsets(sampled_subsets)
+    upscale = 2
+    small_font = Plots.font("sans-serif", 10.0 * upscale)
+    large_font = Plots.font("sans-serif", 14.0 * upscale)
+    default(titlefont  = large_font,
+            guidefont  = large_font,
+            tickfont   = small_font,
+            legendfont = small_font)
+    default(size = (896 * upscale, 504 * upscale))
+    default(dpi = 300)
+
+    plotly()
+
+    subplots = []
+
+    for subset in sampled_subsets
+        push!(subplots,
+              histogram(Array(subset[1][:D]), labels = "D",
+                        title = subset[3]),
+              plot(Array(subset[1][[:D, :DELB, :Length]]),
+                  ylims = (-1, subset[2] + 2),
+                  labels = ["D" "DELB" "Length"],
+                  title = subset[3],
+                  linestyle = :solid,
+                  linealpha=1.0,
+                  linewidth=1.5 * upscale)
+        )
+    end
+
+    plot(subplots...,
+        layout = (7, 2)
+    )
+end
