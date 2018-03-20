@@ -81,6 +81,10 @@ function d_optimality(model_matrix::Array{Float64, 2})
     end
 end
 
+function d_efficiency_lower_bound(model_matrix::Array{Float64, 2})
+    return d_optimality(model_matrix) / size(model_matrix, 1)
+end
+
 function a_optimality(model_matrix::Array{Float64, 2})
     information_matrix = model_matrix' * model_matrix
 
@@ -117,7 +121,7 @@ function g_efficiency(model_matrix::Array{Float64, 2})
     end
 end
 
-function d_efficiency_lower_bound(model_matrix::Array{Float64, 2})
+function d_efficiency_lower_bound_algdesign(model_matrix::Array{Float64, 2})
     g_e   = g_efficiency(model_matrix)
     d_elb = exp(1 - (1 / g_e))
 
@@ -209,16 +213,17 @@ function generate_designs(factors::Array{T, 1},
         println("> WARNING: Skipping bounds check!")
     end
 
-    evaluation = DataFrame(Length = [],
-                           D      = [],
-                           log10D = [],
-                           DELB   = [],
-                           A      = [],
-                           V      = [],
-                           G      = [],
-                           CN     = [],
-                           log2CN = [],
-                           GE     = [])
+    evaluation = DataFrame(Length  = [],
+                           D       = [],
+                           log10D  = [],
+                           DELB    = [],
+                           DELB_ad = [],
+                           A       = [],
+                           V       = [],
+                           G       = [],
+                           CN      = [],
+                           log2CN  = [],
+                           GE      = [])
 
 
     for i in 1:designs
@@ -234,6 +239,7 @@ function generate_designs(factors::Array{T, 1},
                            d_opt,
                            log(10, abs(d_opt)),
                            d_efficiency_lower_bound(candidate),
+                           d_efficiency_lower_bound_algdesign(candidate),
                            a_optimality(candidate),
                            v_optimality(candidate),
                            g_optimality(candidate),
