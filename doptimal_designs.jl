@@ -1,8 +1,9 @@
-if length(workers()) > 1
-    rmprocs.(workers())
-end
+max_workers = 2
 
-addprocs(2)
+if length(workers()) != max_workers
+    rmprocs.(workers())
+    addprocs(2)
+end
 
 using IterTools, DataFrames, StatsBase, StatPlots
 
@@ -19,7 +20,7 @@ function get_model_variables(formula::DataFrames.Formula)
 end
 
 function scale_orthogonal!(design::Array{Float64, 2},
-                           factors::Array{T, 1}) where T<: Any
+                           factors::Array{T, 1}) where T <: Any
     design_range = (max(design[:,]...) + min(design[:,]...)) / 2
 
     for i = 1:size(design, 2)
@@ -30,12 +31,31 @@ function scale_orthogonal!(design::Array{Float64, 2},
     return design
 end
 
+function scale_box_encoding!(design::Array{Float64, 2},
+                             factors::Array{T, 1}) where T <: Any
+    for i = 1:size(design, 2)
+        factor_mean = mean(factors[i])
+        denominator = sqrt((sum((design[:, i] .- factor_mean) .^ 2.0)) / 4.0)
+
+        numerator = design[:, i] .- factor_mean
+
+        if !iszero(denominator) && !iszero(numerator)
+            numerator ./= denominator
+        end
+
+        design[:, i] = numerator
+    end
+
+    return design
+end
+
 function generate_model_matrix(formula::DataFrames.Formula,
                                design::Array{Float64, 2},
-                               factors::Array{T, 1}) where T <: Any
+                               factors::Array{T, 1};
+                               scale::Function = scale_orthogonal!) where T <: Any
     variables  = get_model_variables(formula)
 
-    design     = DataFrame(scale_orthogonal!(design, factors))
+    design     = DataFrame(scale(design, factors))
     new_design = DataFrame(I = ones(size(design, 1)))
 
     for variable in variables
@@ -178,7 +198,9 @@ function generate_designs(factors::Array{T, 1},
                           formula::DataFrames.Formula,
                           sample_range::UnitRange{Int},
                           designs::Int;
-                          check_bounds::Bool = true) where T <: Any
+                          check_bounds::Bool = true,
+                          scale::Function = scale_orthogonal!,
+                          compute_all_metrics::Bool = false) where T <: Any
     println("> Factors: ", factors)
 
     full_factorial_size = prod(length, factors)
@@ -213,45 +235,74 @@ function generate_designs(factors::Array{T, 1},
         println("> WARNING: Skipping bounds check!")
     end
 
-    evaluation = DataFrame(Length  = [],
-                           D       = [],
-                           log10D  = [],
-                           DELB    = [],
-                           DELB_ad = [],
-                           A       = [],
-                           V       = [],
-                           G       = [],
-                           CN      = [],
-                           log2CN  = [],
-                           GE      = [])
+    if compute_all_metrics
+        evaluation = DataFrame(
+                               Length  = [],
+                               D       = [],
+                               DELB    = [],
+                               DELB_ad = [],
+                               A       = [],
+                               V       = [],
+                               G       = [],
+                               CN      = [],
+                               GE      = [],
+                               log2CN  = [],
+                               log10D  = []
+                              )
+    else
+        evaluation = DataFrame(
+                               Length  = [],
+                               D       = [],
+                               DELB    = [],
+                               DELB_ad = []
+                              )
+    end
 
 
     for i in 1:designs
         samples      = rand(sample_range)
         subset       = full_factorial_subset(factors, samples)
-        model_matrix = generate_model_matrix(formula, Array{Float64, 2}(subset), factors)
+        model_matrix = generate_model_matrix(formula, Array{Float64, 2}(subset), factors,
+                                             scale = scale)
         candidate    = Array(model_matrix)
 
-        d_opt = d_optimality(candidate)
-        c_n   = condition_number(candidate)
+        if compute_all_metrics
+            d_opt = d_optimality(candidate)
+            c_n   = condition_number(candidate)
 
-        push!(evaluation, [size(candidate, 1),
-                           d_opt,
-                           log(10, abs(d_opt)),
-                           d_efficiency_lower_bound(candidate),
-                           d_efficiency_lower_bound_algdesign(candidate),
-                           a_optimality(candidate),
-                           v_optimality(candidate),
-                           g_optimality(candidate),
-                           c_n,
-                           log(2, abs(c_n)),
-                           g_efficiency(candidate)])
+            push!(evaluation, [
+                               size(candidate, 1),
+                               d_opt,
+                               d_efficiency_lower_bound(candidate),
+                               d_efficiency_lower_bound_algdesign(candidate),
+                               a_optimality(candidate),
+                               v_optimality(candidate),
+                               g_optimality(candidate),
+                               c_n,
+                               g_efficiency(candidate),
+                               log(2, abs(c_n)),
+                               log(10, abs(d_opt))
+                              ]
+                 )
+        else
+            push!(evaluation, [
+                               size(candidate, 1),
+                               d_optimality(candidate),
+                               d_efficiency_lower_bound(candidate),
+                               d_efficiency_lower_bound_algdesign(candidate)
+                              ]
+                 )
+        end
     end
 
     return evaluation
 end
 
-function sample_subset(factors, sample_range, designs; check_bounds = true)
+function sample_subset(factors,
+                       sample_range,
+                       designs;
+                       check_bounds = true,
+                       scale = scale_orthogonal!)
     formula = build_linear_formula(length(factors))
     #formula = @formula(y ~ x1 + x2 + x3)
 
@@ -259,7 +310,8 @@ function sample_subset(factors, sample_range, designs; check_bounds = true)
                                                            formula,
                                                            sample_range,
                                                            designs,
-                                                           check_bounds = check_bounds)
+                                                           check_bounds = check_bounds,
+                                                           scale = scale)
     println("> Elapsed Time: ", run_time, " seconds")
 
     sort!(sampling_subset, cols = :D, rev = true)
@@ -270,7 +322,9 @@ end
 function sample_subsets(factors::Array,
                         ranges::Array{UnitRange{Int}, 1},
                         designs::Int;
-                        check_bounds::Bool = true)
+                        check_bounds::Bool = true,
+                        scale::Function = scale_orthogonal!,
+                        compute_all_metrics::Bool = false)
     sampled_subsets = []
 
     for subset = 1:length(ranges)
@@ -288,12 +342,15 @@ function sample_subsets(factors::Array,
         sampled_subset = sample_subset(factors[subset],
                                        ranges[subset],
                                        designs,
-                                       check_bounds = check_bounds)
+                                       check_bounds = check_bounds,
+                                       scale = scale)
 
-        push!(sampled_subsets,
+        push!(
+              sampled_subsets,
               (sampled_subset,
-              max(sampled_subset[:Length]..., sampled_subset[:D]...),
-              label))
+              max(sampled_subset[:D]...),
+              label)
+             )
     end
 
     return sampled_subsets
