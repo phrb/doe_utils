@@ -299,7 +299,7 @@ function sample_subsets(factors::Array,
     return sampled_subsets
 end
 
-function plot_subsets(sampled_subsets)
+function plot_subsets(sampled_subsets; columns = [:D, :DELB, :Length])
     upscale = 2
     small_font = Plots.font("sans-serif", 10.0 * upscale)
     large_font = Plots.font("sans-serif", 14.0 * upscale)
@@ -318,9 +318,9 @@ function plot_subsets(sampled_subsets)
         push!(subplots,
               histogram(Array(subset[1][:D]), labels = "D",
                         title = subset[3]),
-              plot(Array(subset[1][[:D, :DELB, :Length]]),
+              plot(Array(subset[1][columns]),
                   ylims = (-1, subset[2] + 2),
-                  labels = ["D" "DELB" "Length"],
+                  labels = reshape(columns, (1, length(columns))),
                   title = subset[3],
                   linestyle = :solid,
                   linealpha=1.0,
