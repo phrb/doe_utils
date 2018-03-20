@@ -373,8 +373,12 @@ function plot_subsets(sampled_subsets; columns = [:D, :DELB, :Length])
 
     for subset in sampled_subsets
         push!(subplots,
-              histogram(Array(subset[1][:D]), labels = "D",
-                        title = subset[3]),
+              histogram(Array(subset[1][:D]), labels = "Designs",
+                        title = string("D-Optimality for ", subset[3]),
+                        color = :lightblue),
+              histogram(Array(subset[1][:DELB]), labels = "Designs",
+                        title = string("D-Efficiency for ", subset[3]),
+                        color = :darkorange),
               plot(Array(subset[1][columns]),
                   ylims = (-1, subset[2] + 2),
                   labels = reshape(columns, (1, length(columns))),
@@ -386,6 +390,6 @@ function plot_subsets(sampled_subsets; columns = [:D, :DELB, :Length])
     end
 
     plot(subplots...,
-        layout = (length(sampled_subsets), 2)
+        layout = (length(sampled_subsets), 3)
     )
 end
