@@ -356,6 +356,10 @@ function sample_subsets(factors::Array,
     return sampled_subsets
 end
 
+function check_zero(x, tol = 1e-4)
+    return isapprox(x, 0.0, atol = tol) ? 0.0 : x
+end
+
 function plot_subsets(sampled_subsets; columns = [:D, :DELB, :Length])
     upscale = 2
     small_font = Plots.font("sans-serif", 10.0 * upscale)
@@ -372,6 +376,10 @@ function plot_subsets(sampled_subsets; columns = [:D, :DELB, :Length])
     subplots = []
 
     for subset in sampled_subsets
+        for column in columns
+            subset[1][column] = check_zero.(subset[1][column])
+        end
+
         push!(subplots,
               histogram(Array(subset[1][:D]), labels = "Designs",
                         title = string("D-Optimality for ", subset[3]),
